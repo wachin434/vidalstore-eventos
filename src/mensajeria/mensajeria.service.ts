@@ -5,7 +5,7 @@ import { declararTopologia } from './topologia';
 @Injectable()
 export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MensajeriaService.name);
-  private conexion!: amqp.Connection;
+  private conexion!: amqp.ChannelModel;
   private canalPublicacion!: amqp.ConfirmChannel;
 
   async onModuleInit(): Promise<void> {
