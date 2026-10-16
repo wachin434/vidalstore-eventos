@@ -7,8 +7,13 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MensajeriaService.name);
   private conexion!: amqp.ChannelModel;
   private canalPublicacion!: amqp.ConfirmChannel;
+  private readonly listo: Promise<void>;
 
-  async onModuleInit(): Promise<void> {
+  constructor() {
+    this.listo = this.conectar();
+  }
+
+  private async conectar(): Promise<void> {
     const url = process.env.RABBITMQ_URL ?? 'amqp://localhost:5672';
     this.conexion = await amqp.connect(url);
 
@@ -22,6 +27,10 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Topología de mensajería declarada correctamente');
   }
 
+  async onModuleInit(): Promise<void> {
+    await this.listo;
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.canalPublicacion?.close();
     await this.conexion?.close();
@@ -32,6 +41,7 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
     routingKey: string,
     payload: Record<string, unknown>,
   ): Promise<void> {
+    await this.listo;
     const buffer = Buffer.from(JSON.stringify(payload));
     await new Promise<void>((resolve, reject) => {
       this.canalPublicacion.publish(
@@ -48,6 +58,7 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
     cola: string,
     manejador: (payload: any) => Promise<void>,
   ): Promise<void> {
+    await this.listo;
     const canal = await this.conexion.createChannel();
     await canal.prefetch(10);
 
@@ -88,6 +99,7 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
     cola: string,
     manejador: (msg: amqp.ConsumeMessage) => Promise<void>,
   ): Promise<void> {
+    await this.listo;
     const canal = await this.conexion.createChannel();
     await canal.prefetch(10);
 
