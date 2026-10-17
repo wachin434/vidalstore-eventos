@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+﻿import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as amqp from 'amqplib';
 import { declararTopologia } from './topologia';
 
@@ -85,11 +85,16 @@ export class MensajeriaService implements OnModuleInit, OnModuleDestroy {
         );
 
         if (esReintento) {
+          // Ya se reintentó una vez y volvió a fallar: recién ahora cae a la DLQ.
           canal.nack(msg, false, false);
           return;
         }
 
-        canal.nack(msg, false, false);
+        // Primer fallo: saca el original de la cola SIN mandarlo a la DLQ
+        // (nack con requeue=false dispararía el dead-letter-exchange de la cola,
+        // dejando un registro falso en mensajes_muertos aunque el reintento funcione)
+        // y encola una copia marcada para reintento.
+        canal.ack(msg);
         await this.publicarConHeaderReintento(cola, msg);
       }
     });
