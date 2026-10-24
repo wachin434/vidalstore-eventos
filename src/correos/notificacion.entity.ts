@@ -1,22 +1,28 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('notificaciones')
+export type EstadoNotificacion = 'enviada' | 'fallida';
+
+@Entity({ schema: 'eventos', name: 'notificaciones' })
 export class Notificacion {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column()
-  destinatario!: string;
+  // UNIQUE: reprocesar dos veces el mismo evento no duplica el aviso.
+  @Column({ name: 'evento_id', type: 'uuid', unique: true })
+  eventoId!: string;
 
-  @Column()
+  @Column({ type: 'text' })
+  para!: string;
+
+  @Column({ type: 'text' })
   asunto!: string;
 
   @Column({ type: 'text' })
   cuerpo!: string;
 
-  @Column({ default: false })
-  enviado!: boolean;
+  @Column({ type: 'text' })
+  estado!: EstadoNotificacion;
 
-  @CreateDateColumn({ name: 'creado_en' })
-  creadoEn!: Date;
+  @CreateDateColumn({ name: 'creada_en', type: 'timestamptz' })
+  creadaEn!: Date;
 }
