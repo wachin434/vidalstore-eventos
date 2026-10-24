@@ -1,19 +1,25 @@
 import { Module } from '@nestjs/common';
-import { MensajeriaService } from './mensajeria/mensajeria.service';
+import { ConfigModule } from '@nestjs/config';
+import { AuditoriaModule } from './auditoria/auditoria.module';
+import { AvisosModule } from './avisos/avisos.module';
+import { CorreosModule } from './correos/correos.module';
+import { DlqModule } from './dlq/dlq.module';
+import { MensajeriaModule } from './mensajeria/mensajeria.module';
 import { PersistenciaModule } from './persistencia/persistencia.module';
-import { LicenciasConsumer } from './licencias/licencias.consumer';
-import { CatalogoEventosConsumer } from './catalogo-eventos/catalogo-eventos.consumer';
-import { CorreosConsumer } from './correos/correos.consumer';
-import { DlqConsumer } from './dlq/dlq.consumer';
+import { ReprocesoModule } from './reproceso/reproceso.module';
+import { SaludModule } from './salud/salud.module';
 
 @Module({
-  imports: [PersistenciaModule],
-  providers: [
-    MensajeriaService,
-    LicenciasConsumer,
-    CatalogoEventosConsumer,
-    CorreosConsumer,
-    DlqConsumer,
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PersistenciaModule,
+    MensajeriaModule,
+    AvisosModule,
+    AuditoriaModule,
+    CorreosModule,
+    DlqModule,
+    ReprocesoModule,
+    SaludModule,
   ],
 })
 export class AppModule {}
