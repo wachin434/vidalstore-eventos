@@ -40,7 +40,7 @@ export class DlqConsumer implements OnModuleInit {
 
   async archivar(msg: ConsumeMessage): Promise<void> {
     const muerte = leerMuerte(msg);
-    this.logger.warn(
+    if (!msg.fields.redelivered) this.logger.warn(
       `Mensaje muerto: cola=${muerte.colaOrigen} routingKey=${muerte.routingKey} motivo=${muerte.motivo} intentos=${muerte.intentos}`,
     );
     await this.repo.insert({
