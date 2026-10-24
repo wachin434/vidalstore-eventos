@@ -5,7 +5,10 @@
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
-    "start:dev": "nest start --watch"
+    "start:dev": "nest start --watch",
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "envenenado": "node scripts/publicar-envenenado.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -18,12 +21,29 @@
     "pg": "^8.12.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "@nestjs/config": "^4.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@types/amqplib": "^0.10.5",
     "@types/node": "^22.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "@types/jest": "^29.5.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "testEnvironment": "node"
   }
 }

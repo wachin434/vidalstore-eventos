@@ -1,18 +1,17 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ErrorMensajeInvalido, esUuid } from '../mensajeria/errores';
+import { Mensaje } from '../mensajeria/mensaje';
 import { MensajeriaService } from '../mensajeria/mensajeria.service';
-import { COLA_CORREOS, RK_CORREO_ENVIAR } from '../mensajeria/topologia';
+import { COLA_CORREOS } from '../mensajeria/topologia';
 import { Notificacion } from './notificacion.entity';
 
-interface PayloadCorreoEnviar {
-  eventoId: string;
-  tipo: typeof RK_CORREO_ENVIAR;
-  destinatario: string;
-  asunto: string;
-  cuerpo: string;
-}
-
+/**
+ * Consumidor de correos (cola.correos): registra la notificación. No hay
+ * servidor SMTP real; el envío se simula con una línea de log y estado
+ * 'enviada'. Idempotente por UNIQUE(evento_id).
+ */
 @Injectable()
 export class CorreosConsumer implements OnModuleInit {
   private readonly logger = new Logger(CorreosConsumer.name);
@@ -20,28 +19,29 @@ export class CorreosConsumer implements OnModuleInit {
   constructor(
     private readonly mensajeria: MensajeriaService,
     @InjectRepository(Notificacion)
-    private readonly notificacionesRepo: Repository<Notificacion>,
+    private readonly repo: Repository<Notificacion>,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.mensajeria.consumir(COLA_CORREOS, (payload) =>
-      this.manejar(payload as PayloadCorreoEnviar),
-    );
+    await this.mensajeria.consumir({
+      cola: COLA_CORREOS,
+      prefetch: 10,
+      manejador: (m) => this.manejar(m),
+    });
   }
 
-  private async manejar(payload: PayloadCorreoEnviar): Promise<void> {
-    const notificacion = this.notificacionesRepo.create({
-      destinatario: payload.destinatario,
-      asunto: payload.asunto,
-      cuerpo: payload.cuerpo,
-      enviado: false,
+  async manejar(mensaje: Mensaje): Promise<void> {
+    const p = mensaje.payload as Record<string, string>;
+    if (!esUuid(p.eventoId)) {
+      throw new ErrorMensajeInvalido('el campo "eventoId" no es un UUID');
+    }
+    await this.repo.insert({
+      eventoId: p.eventoId,
+      para: p.para,
+      asunto: p.asunto,
+      cuerpo: p.cuerpo,
+      estado: 'enviada',
     });
-    await this.notificacionesRepo.save(notificacion);
-
-    this.logger.log(
-      `Correo "enviado" a ${payload.destinatario}: ${payload.asunto}`,
-    );
-    notificacion.enviado = true;
-    await this.notificacionesRepo.save(notificacion);
+    this.logger.log(`Correo (simulado) a ${p.para}: ${p.asunto}`);
   }
 }

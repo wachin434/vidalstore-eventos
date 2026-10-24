@@ -1,45 +1,73 @@
 # vidalstore-eventos
 
-Microservicio NestJS que consume la mensajería de VidalStore (RabbitMQ) y
-persiste sus efectos en Postgres. No expone rutas de negocio propias — solo
-escucha colas y escribe en la base.
+Servicio NestJS que **consume** la mensajería de VidalStore (RabbitMQ) y guarda
+sus efectos en el esquema `eventos` de Postgres. Su única ruta HTTP es
+`GET /salud`. Declara la topología completa de RabbitMQ al arrancar.
 
-## Qué hace
+## Consumidores (un archivo y un módulo Nest por dominio)
 
-- Consume `cola.licencias` → crea/revoca licencias según `compra.realizada` /
-  `licencia.revocada`.
-- Consume `cola.catalogo-eventos` → registra `juego.publicado` y encadena un
-  comando `correo.enviar`.
-- Consume `cola.correos` → "envía" (simula) la notificación y la guarda en
-  `notificaciones`.
-- Consume las 3 DLQ → archiva en `mensajes_muertos` cualquier mensaje que
-  haya fallado tras reintentar o que llegara corrupto.
+| Dominio | Cola (de `topologia.ts`) | Prefetch | Qué hace |
+|---|---|---|---|
+| `avisos/` | `cola.avisos` (`licencia.revocada`, `compra.realizada`) | 10 | Publica el comando `correo.enviar` con el `eventoId` del evento origen |
+| `auditoria/` | `cola.auditoria` (`#`) | 10 | Inserta cada evento en `eventos.eventos_auditoria` |
+| `correos/` | `cola.correos` (`correo.enviar`) | 10 | Registra la notificación en `eventos.notificaciones` (envío simulado) |
+| `dlq/` | las 4 `*.dlq` | 1 | Loguea una línea y archiva en `eventos.mensajes_muertos` |
+| `reproceso/` | `cola.reproceso` (`dlq.reprocesar`) | 1 | Republica un mensaje muerto en su exchange de origen (lo pide `vidalstore-admin`) |
 
-Cada evento se registra primero en `eventos_auditoria` (UNIQUE sobre
-`evento_id`) para no procesar dos veces el mismo mensaje, dado que RabbitMQ
-garantiza entrega "al menos una vez".
+Ningún consumidor escribe el nombre de su cola ni llama a `assertQueue`: todo
+sale de `src/mensajeria/topologia.ts`.
 
-## Estructura
+## Reglas de confirmación (ack / nack)
 
+- `noAck: false` y `prefetch` explícito. El `ack` se hace **después** de terminar el trabajo.
+- Mensaje mal formado (no es JSON objeto, falta un campo obligatorio, `x-evento-id` ausente o no UUID):
+  `nack(msg, false, false)` directo a la DLQ, sin reintento.
+- Fallo transitorio (p. ej. Postgres no responde): 3 intentos dentro del consumidor,
+  esperando 500 ms y 1000 ms entre ellos; si se agotan, `nack(msg, false, false)`.
+- Duplicado (error `23505` sobre `evento_id`): se registra y se hace `ack`.
+- `requeue: true` solo en el consumidor de DLQ y solo si Postgres no responde (espera 5 s y devuelve el mensaje a la misma DLQ).
+- Entrega **al menos una vez**; la idempotencia sale de `UNIQUE(evento_id)`.
+
+## Topología
+
+Exchanges: `vidalstore.eventos` (topic), `vidalstore.comandos` (direct), `vidalstore.dlx` (direct).
+Colas quorum durables; cada cola de trabajo tiene `x-dead-letter-exchange = vidalstore.dlx` y
+`x-dead-letter-routing-key = <su nombre>`, y su DLQ se declara **antes**. Retención por cola
+(overflow `reject-publish`, porque las quorum no admiten `reject-publish-dlx`) en `docs/politicas.md`
+de `vidalstore-plataforma`. Con 2 nodos las quorum queues no toleran la caída de ninguno.
+
+## Base de datos
+
+Esquema `eventos`, rol `eventos_app`: `eventos_auditoria`, `notificaciones`, `mensajes_muertos`
+(SQL en `src/persistencia/esquema.ts`, se aplica al arrancar y es idempotente). Este servicio
+nunca consulta el esquema `licencias`. `synchronize` de TypeORM solo se activa con
+`DB_SYNCHRONIZE=true` y fuera de producción; las credenciales salen de `DATABASE_URL` (variables de entorno).
+
+## Variables de entorno
+
+Ver `.env.example`: `RABBITMQ_URL`, `DATABASE_URL`, `AVISOS_DOMINIO`, `DB_SYNCHRONIZE`, `PORT`.
+
+## Comandos
+
+```bash
+npm install
+npm run build
+npm test                 # pruebas unitarias (jest)
+npm run start:dev
 ```
-src/
-├── mensajeria/        topología (exchanges/colas) + conexión a RabbitMQ
-├── licencias/          consumidor + entidades Licencia / EventoAuditoria
-├── catalogo-eventos/    consumidor de publicación de juegos
-├── correos/            consumidor de notificaciones
-├── dlq/                consumidor de las 3 colas muertas
-└── persistencia/        configuración de TypeORM
+
+## Probar un mensaje envenenado
+
+Con el sistema levantado (`docker compose up -d --build --wait` en `vidalstore-plataforma`):
+
+```bash
+docker compose exec eventos node scripts/publicar-envenenado.mjs
 ```
 
-## Puerto
+Publica un cuerpo que no es JSON en `vidalstore.eventos` (`compra.realizada`). Debe quedar
+una fila por cada cola afectada (`cola.avisos.dlq` y `cola.auditoria.dlq`) en `eventos.mensajes_muertos`,
+con la cola de origen, la routing key original, el motivo `rejected` y los intentos leídos de `x-death`.
 
-`3010` (fijo, ver `src/main.ts`).
+## `GET /salud`
 
-## Cómo correrlo
-
-Este servicio no se levanta solo — depende del clúster RabbitMQ y Postgres
-definidos en `vidalstore-plataforma`. Ver el `README.md` de ese repo para el
-procedimiento completo de arranque (`docker compose up --build --wait`).
-
-Variables de entorno esperadas: `RABBITMQ_URL`, `DATABASE_URL` (las define el
-`compose.yml` de `vidalstore-plataforma`).
+`{ "rabbitmq": "ok", "postgres": "ok" }` con 200; si alguno está caído, 503.
