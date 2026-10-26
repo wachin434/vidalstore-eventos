@@ -18,6 +18,10 @@ export const RK_JUEGO_PUBLICADO = 'juego.publicado';
 export const RK_CORREO_ENVIAR = 'correo.enviar';
 export const RK_DLQ_REPROCESAR = 'dlq.reprocesar';
 
+// Patrones de binding (topic): avisos escucha todo lo que empiece con licencia. o compra.
+export const PATRON_LICENCIA = 'licencia.*';
+export const PATRON_COMPRA = 'compra.*';
+
 // ── Colas de trabajo y sus DLQ ───────────────────────────────────────────
 export const COLA_AVISOS = 'cola.avisos';
 export const COLA_AUDITORIA = 'cola.auditoria';
@@ -60,7 +64,7 @@ export const COLAS: DefinicionCola[] = [
   {
     nombre: COLA_AVISOS,
     exchange: EXCHANGE_EVENTOS,
-    routingKeys: [RK_LICENCIA_REVOCADA, RK_COMPRA_REALIZADA],
+    routingKeys: [PATRON_LICENCIA, PATRON_COMPRA],
     maxLength: 10_000,
     ttlMs: 24 * HORA, // un aviso viejo ya no sirve
   },

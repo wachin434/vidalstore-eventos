@@ -55,8 +55,8 @@ describe('declararTopologia', () => {
     const f = canalFalso();
     await declararTopologia(f.canal);
     expect(f.enlaces).toContainEqual(['cola.avisos.dlq', EXCHANGE_DLX, 'cola.avisos']);
-    expect(f.enlaces).toContainEqual(['cola.avisos', 'vidalstore.eventos', 'licencia.revocada']);
-    expect(f.enlaces).toContainEqual(['cola.avisos', 'vidalstore.eventos', 'compra.realizada']);
+    expect(f.enlaces).toContainEqual(['cola.avisos', 'vidalstore.eventos', 'licencia.*']);
+    expect(f.enlaces).toContainEqual(['cola.avisos', 'vidalstore.eventos', 'compra.*']);
     expect(f.enlaces).toContainEqual(['cola.auditoria', 'vidalstore.eventos', '#']);
     expect(f.enlaces).toContainEqual(['cola.correos', 'vidalstore.comandos', 'correo.enviar']);
     expect(f.enlaces).toContainEqual(['cola.reproceso', 'vidalstore.comandos', 'dlq.reprocesar']);
