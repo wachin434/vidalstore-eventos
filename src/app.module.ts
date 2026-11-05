@@ -8,6 +8,7 @@ import { MensajeriaModule } from './mensajeria/mensajeria.module';
 import { PersistenciaModule } from './persistencia/persistencia.module';
 import { ReprocesoModule } from './reproceso/reproceso.module';
 import { SaludModule } from './salud/salud.module';
+import { StreamingModule } from './streaming/streaming.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SaludModule } from './salud/salud.module';
     DlqModule,
     ReprocesoModule,
     SaludModule,
+    StreamingModule,
   ],
 })
 export class AppModule {}
