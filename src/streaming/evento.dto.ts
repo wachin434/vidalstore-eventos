@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import {
   Equals,
   IsIn,
+  IsBoolean,
   IsInt,
   IsISO8601,
   IsNotEmpty,
@@ -17,7 +18,9 @@ import {
 // Sobre comun de todos los eventos (punto 7 de la Guia de la EP3).
 export const TIPOS_ACTIVIDAD = ['partida.iniciada', 'partida.terminada', 'logro.desbloqueado'] as const;
 export const TIPOS_COMPRAS = ['compra.realizada', 'licencia.revocada'] as const;
-export const TIPOS = [...TIPOS_ACTIVIDAD, ...TIPOS_COMPRAS] as const;
+// vidalstore.catalogo (compactado): cada mensaje es el estado vigente de un juego; la key es el juegoId.
+export const TIPOS_CATALOGO = ['juego.publicado', 'precio.cambiado'] as const;
+export const TIPOS = [...TIPOS_ACTIVIDAD, ...TIPOS_COMPRAS, ...TIPOS_CATALOGO] as const;
 export type Tipo = (typeof TIPOS)[number];
 
 export class EventoDto {
@@ -62,10 +65,19 @@ export class DatosLicenciaRevocadaDto {
   @IsString() @MaxLength(500) motivo!: string;
 }
 
+// Estado completo del juego (no solo lo que cambio): asi, al compactar, el ultimo mensaje de la key basta.
+export class DatosJuegoCatalogoDto {
+  @IsString() @IsNotEmpty() titulo!: string;
+  @IsInt() @Min(0) precioClp!: number;
+  @IsBoolean() activo!: boolean;
+}
+
 export const DTO_DE_DATOS: Record<Tipo, new () => object> = {
   'partida.iniciada': DatosPartidaIniciadaDto,
   'partida.terminada': DatosPartidaTerminadaDto,
   'logro.desbloqueado': DatosLogroDesbloqueadoDto,
   'compra.realizada': DatosCompraRealizadaDto,
   'licencia.revocada': DatosLicenciaRevocadaDto,
+  'juego.publicado': DatosJuegoCatalogoDto,
+  'precio.cambiado': DatosJuegoCatalogoDto,
 };
