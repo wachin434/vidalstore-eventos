@@ -74,4 +74,15 @@ describe('validarEvento', () => {
     expect(validarEvento('').ok).toBe(false);
     expect(validarEvento(undefined).ok).toBe(false);
   });
+
+  it('acepta un juego publicado y un precio cambiado del catalogo', () => {
+    const juego = { ...base, tipo: 'juego.publicado', datos: { titulo: 'Hades', precioClp: 14990, activo: true } };
+    expect(validarEvento(texto(juego)).ok).toBe(true);
+    expect(validarEvento(texto({ ...juego, tipo: 'precio.cambiado' })).ok).toBe(true);
+  });
+
+  it('rechaza un juego del catalogo sin titulo o con precio negativo', () => {
+    const juego = { ...base, tipo: 'juego.publicado', datos: { titulo: '', precioClp: -1, activo: true } };
+    expect(validarEvento(texto(juego)).ok).toBe(false);
+  });
 });

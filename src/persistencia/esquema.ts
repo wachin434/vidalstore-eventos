@@ -42,4 +42,70 @@ CREATE TABLE IF NOT EXISTS eventos.mensajes_muertos (
   reprocesado_por  text
 );
 CREATE INDEX IF NOT EXISTS ix_muertos_recibido_en ON eventos.mensajes_muertos (recibido_en);
+
+-- E2: tablas de lectura de los consumer groups de Kafka (todas idempotentes).
+-- vidalstore-panel: una fila por evento; evento_id es la clave, asi que un duplicado no entra.
+CREATE TABLE IF NOT EXISTS eventos.kpi_minuto (
+  evento_id uuid        PRIMARY KEY,
+  minuto    timestamptz NOT NULL,
+  juego_id  text        NOT NULL,
+  tipo      text        NOT NULL,
+  monto_clp integer     NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ix_kpi_minuto_minuto ON eventos.kpi_minuto (minuto);
+
+-- alertas e historial suman: el evento se registra aqui EN LA MISMA transaccion que suma.
+CREATE TABLE IF NOT EXISTS eventos.eventos_procesados (
+  grupo        text        NOT NULL,
+  evento_id    uuid        NOT NULL,
+  procesado_en timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (grupo, evento_id)
+);
+
+-- vidalstore-alertas: partidas terminadas y en error por juego y ventana fija de 5 minutos (UTC).
+CREATE TABLE IF NOT EXISTS eventos.ventanas_partida (
+  juego_id   text        NOT NULL,
+  ventana    timestamptz NOT NULL,
+  terminadas integer     NOT NULL,
+  en_error   integer     NOT NULL,
+  PRIMARY KEY (juego_id, ventana)
+);
+CREATE TABLE IF NOT EXISTS eventos.alertas (
+  juego_id       text        NOT NULL,
+  ventana        timestamptz NOT NULL,
+  terminadas     integer     NOT NULL,
+  en_error       integer     NOT NULL,
+  actualizada_en timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (juego_id, ventana)
+);
+
+-- vidalstore-historial: cada compra (para descontar su precio al revocarla) y el total por semana y juego.
+CREATE TABLE IF NOT EXISTS eventos.ventas_vistas (
+  licencia_id text    PRIMARY KEY,
+  semana      date    NOT NULL,
+  juego_id    text    NOT NULL,
+  monto_clp   integer NOT NULL,
+  revocada    boolean NOT NULL DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS eventos.ventas_semana (
+  semana             date    NOT NULL,
+  juego_id           text    NOT NULL,
+  unidades           integer NOT NULL,
+  monto_clp          bigint  NOT NULL,
+  revocadas          integer NOT NULL,
+  monto_revocado_clp bigint  NOT NULL,
+  PRIMARY KEY (semana, juego_id)
+);
+
+-- vidalstore-panel tambien lee vidalstore.catalogo (compactado): una fila por juego con su ultimo estado.
+-- Se puede borrar y reconstruir entera releyendo el topic desde el offset 0 (ver docs/consumer-groups.md).
+CREATE TABLE IF NOT EXISTS eventos.catalogo_vista (
+  juego_id    text        PRIMARY KEY,
+  titulo      text        NOT NULL,
+  precio_clp  integer     NOT NULL,
+  activo      boolean     NOT NULL,
+  ultimo_tipo text        NOT NULL,
+  evento_id   uuid        NOT NULL,
+  emitido_en  timestamptz NOT NULL
+);
 `;
