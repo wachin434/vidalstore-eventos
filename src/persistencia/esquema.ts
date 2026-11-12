@@ -96,4 +96,16 @@ CREATE TABLE IF NOT EXISTS eventos.ventas_semana (
   monto_revocado_clp bigint  NOT NULL,
   PRIMARY KEY (semana, juego_id)
 );
+
+-- vidalstore-panel tambien lee vidalstore.catalogo (compactado): una fila por juego con su ultimo estado.
+-- Se puede borrar y reconstruir entera releyendo el topic desde el offset 0 (ver docs/consumer-groups.md).
+CREATE TABLE IF NOT EXISTS eventos.catalogo_vista (
+  juego_id    text        PRIMARY KEY,
+  titulo      text        NOT NULL,
+  precio_clp  integer     NOT NULL,
+  activo      boolean     NOT NULL,
+  ultimo_tipo text        NOT NULL,
+  evento_id   uuid        NOT NULL,
+  emitido_en  timestamptz NOT NULL
+);
 `;

@@ -19,7 +19,7 @@ export class PanelEnVivoService {
   constructor(private readonly base: DataSource) {}
 
   async enVivo() {
-    const [minutos, juegos, alertas, ventas] = await Promise.all([
+    const [minutos, juegos, alertas, ventas, catalogo] = await Promise.all([
       // Serie por minuto. Por dentro se cuenta cada tipo en su columna; por fuera, sum(...) OVER es una suma
       // acumulada: en cada minuto, todas las iniciadas menos todas las terminadas hasta ese minuto.
       this.base.query<FilaMinuto[]>(
@@ -55,7 +55,13 @@ export class PanelEnVivoService {
                 sum(revocadas)::int AS revocadas, sum(monto_revocado_clp)::bigint AS monto_revocado_clp
            FROM eventos.ventas_semana GROUP BY juego_id`,
       ),
+      // Titulos: salen de catalogo_vista, que se arma con vidalstore.catalogo (topic compactado).
+      this.base.query<{ juego_id: string; titulo: string }[]>(`SELECT juego_id, titulo FROM eventos.catalogo_vista`),
     ]);
+
+    // Si el juego aun no llego por el topic del catalogo, titulo queda en null y el panel muestra su id.
+    const titulos = new Map(catalogo.map((c) => [c.juego_id, c.titulo]));
+    const titulo = (id: string) => titulos.get(id) ?? null;
 
     const n = (v: unknown) => Number(v ?? 0);
     const ultimo = minutos.at(-1);
@@ -87,10 +93,11 @@ export class PanelEnVivoService {
         compras: m.compras,
         montoClp: n(m.monto_clp),
       })),
-      porJuego: juegos.map((j) => ({ juegoId: j.juego_id, enCurso: j.en_curso, compras: j.compras })),
+      porJuego: juegos.map((j) => ({ juegoId: j.juego_id, titulo: titulo(j.juego_id), enCurso: j.en_curso, compras: j.compras })),
       regla: { umbralError: UMBRAL_ERROR, minimoTerminadas: MINIMO_TERMINADAS, ventanaMinutos: 5 },
       alertas: alertas.map((a) => ({
         juegoId: a.juego_id,
+        titulo: titulo(a.juego_id),
         desde: a.desde,
         hasta: a.hasta,
         terminadas: a.terminadas,
@@ -103,8 +110,8 @@ export class PanelEnVivoService {
         revocaciones: ventas.reduce((s, v) => s + n(v.revocadas), 0),
         revocadoClp: revocado,
         netoClp: bruto - revocado,
-        masVendido: masVendido ? { juegoId: masVendido.juego_id, unidades: n(masVendido.unidades) } : null,
-        mayorRecaudo: masRecaudo ? { juegoId: masRecaudo.juego_id, montoClp: n(masRecaudo.monto_clp) } : null,
+        masVendido: masVendido ? { juegoId: masVendido.juego_id, titulo: titulo(masVendido.juego_id), unidades: n(masVendido.unidades) } : null,
+        mayorRecaudo: masRecaudo ? { juegoId: masRecaudo.juego_id, titulo: titulo(masRecaudo.juego_id), montoClp: n(masRecaudo.monto_clp) } : null,
       },
     };
   }

@@ -6,13 +6,13 @@ import type { EventoDto } from '../evento.dto';
 import { TOPICS } from '../topics';
 import { PanelNegocio } from './panel.negocio';
 
-/** Consumer group vidalstore-panel: actividad y compras, hacia kpi_minuto. */
+/** Consumer group vidalstore-panel: actividad y compras hacia kpi_minuto, y el catalogo hacia catalogo_vista. */
 @Injectable()
 export class PanelConsumidor extends ConsumidorKafka<EventoDto> {
   constructor(config: ConfigService, panel: PanelNegocio) {
     super(
       config,
-      { grupo: 'vidalstore-panel', topics: [TOPICS.actividad, TOPICS.compras], validar: validarSobre },
+      { grupo: 'vidalstore-panel', topics: [TOPICS.actividad, TOPICS.compras, TOPICS.catalogo], validar: validarSobre },
       panel,
     );
   }
