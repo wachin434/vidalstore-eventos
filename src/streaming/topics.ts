@@ -5,3 +5,6 @@ export const TOPICS = {
   // Compactado: conserva el ultimo mensaje de cada key (juegoId). Lo crea topics.sh con cleanup.policy=compact.
   catalogo: 'vidalstore.catalogo',
 } as const;
+
+// Los topics que tienen .dlt (los crea topics.sh). El catalogo no tiene: un mensaje invalido ahi solo se registra.
+export const TOPICS_CON_DLT: string[] = [TOPICS.compras, TOPICS.actividad];
