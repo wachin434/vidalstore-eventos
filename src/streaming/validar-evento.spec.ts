@@ -85,4 +85,35 @@ describe('validarEvento', () => {
     const juego = { ...base, tipo: 'juego.publicado', datos: { titulo: '', precioClp: -1, activo: true } };
     expect(validarEvento(texto(juego)).ok).toBe(false);
   });
+
+  describe('codigo (x-motivo del .dlt)', () => {
+    it('JSON cortado o vacio: json-invalido', () => {
+      expect(validarEvento(texto(base).slice(0, 60)).codigo).toBe('json-invalido');
+      expect(validarEvento('').codigo).toBe('json-invalido');
+      expect(validarEvento('[1,2]').codigo).toBe('json-invalido');
+    });
+
+    it('un campo del sobre que no vino: falta-<campo>', () => {
+      const { eventoId, ...sinId } = base;
+      expect(validarEvento(texto(sinId)).codigo).toBe('falta-eventoId');
+    });
+
+    it('un campo de datos que no vino: falta-<campo>', () => {
+      const r = validarEvento(texto({ ...base, datos: { partidaId: 'p-1', duracionSeg: 10 } }));
+      expect(r.codigo).toBe('falta-resultado');
+    });
+
+    it('version distinta de 1: version-desconocida', () => {
+      expect(validarEvento(texto({ ...base, version: 99 })).codigo).toBe('version-desconocida');
+    });
+
+    it('un valor que no cumple el DTO: dto-invalido', () => {
+      expect(validarEvento(texto({ ...base, eventoId: 'no-es-uuid' })).codigo).toBe('dto-invalido');
+      expect(validarEvento(texto({ ...base, datos: { partidaId: 'p-1', duracionSeg: -5, resultado: 'completada' } })).codigo).toBe('dto-invalido');
+    });
+
+    it('un evento valido no trae codigo', () => {
+      expect(validarEvento(texto(base)).codigo).toBeUndefined();
+    });
+  });
 });

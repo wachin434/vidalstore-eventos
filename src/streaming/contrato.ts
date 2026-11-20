@@ -4,8 +4,15 @@ import { validarEvento } from './validar-evento';
 
 export type Mensaje = Message<string, string, string, string>;
 
-/** Un mensaje que no cumple el contrato: no se reintenta, se registra y se confirma (en la E3, al .dlt). */
-export class EventoInvalido extends Error {}
+/** Un mensaje que no cumple el contrato: no se reintenta, se desvia al .dlt con su codigo y se confirma. */
+export class EventoInvalido extends Error {
+  constructor(
+    message: string,
+    readonly codigo: string = 'dto-invalido',
+  ) {
+    super(message);
+  }
+}
 
 /**
  * El contrato de vidalstore.actividad y vidalstore.compras: convierte el value del mensaje en el evento
@@ -15,7 +22,7 @@ export class EventoInvalido extends Error {}
 export function validarSobre(m: Mensaje): EventoDto {
   const resultado = validarEvento(m.value);
   if (!resultado.ok || !resultado.evento) {
-    throw new EventoInvalido(resultado.motivo ?? 'el evento no cumple el contrato');
+    throw new EventoInvalido(resultado.motivo ?? 'el evento no cumple el contrato', resultado.codigo);
   }
   return resultado.evento;
 }
